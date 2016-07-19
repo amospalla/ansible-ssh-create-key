@@ -1,0 +1,5 @@
+---
+- name: include ssh-create-key.yml
+  include: ssh-create-key.yml
+  tags:
+    - ssh-create-key

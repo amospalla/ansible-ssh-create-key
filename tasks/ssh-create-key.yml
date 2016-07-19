@@ -1,0 +1,50 @@
+---
+- name: Get user home
+  shell: 'getent passwd {{ ssh_create_key_user }} | cut -d":" -f 6'
+  register: register_ssh_create_key_user_home
+  changed_when: False
+
+- name: Set home
+  set_fact:
+    ssh_create_key_home: '{{ register_ssh_create_key_user_home.stdout }}'
+
+- name: Ensure home/.ssh folder exists
+  file:
+    path: '{{ ssh_create_key_home }}/.ssh'
+    state: directory
+    mode: 0700
+
+- name: Get if id_rsa exists
+  stat:
+    path: '{{ ssh_create_key_home }}/.ssh/id_rsa'
+  register: register_ssh_create_key_id_rsa_stat
+
+- name: Get if id_rsa.pub exists
+  stat:
+    path: '{{ ssh_create_key_home }}/.ssh/id_rsa.pub'
+  register: register_ssh_create_key_id_rsa_pub_stat
+
+- name: Remove keys if both id_rsa and id_rsa.pub not present
+  file:
+    path: '{{ item }}'
+    state: absent
+  with_items:
+    - '{{ ssh_create_key_home }}/.ssh/id_rsa'
+    - '{{ ssh_create_key_home }}/.ssh/id_rsa.pub'
+  when: 
+         (    (register_ssh_create_key_id_rsa_stat.stat.isreg is not defined or not
+               register_ssh_create_key_id_rsa_stat.stat.isreg )
+          and (register_ssh_create_key_id_rsa_pub_stat.stat.isreg is defined and
+               register_ssh_create_key_id_rsa_pub_stat.stat.isreg ) )
+      or (    (register_ssh_create_key_id_rsa_pub_stat.stat.isreg is not defined or not
+               register_ssh_create_key_id_rsa_pub_stat.stat.isreg )
+          and (register_ssh_create_key_id_rsa_stat.stat.isreg is defined and
+               register_ssh_create_key_id_rsa_stat.stat.isreg ) )
+
+
+- name: Generate ssh key
+  command: ssh-keygen -t rsa -b 2048 -N '' -f {{ ssh_create_key_home }}/.ssh/id_rsa
+  when: (     register_ssh_create_key_id_rsa_stat.stat.isreg is not defined or
+          not register_ssh_create_key_id_rsa_stat.stat.isreg or
+              register_ssh_create_key_id_rsa_pub_stat.stat.isreg is not defined or
+          not register_ssh_create_key_id_rsa_pub_stat.stat.isreg )
